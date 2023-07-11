@@ -5,7 +5,8 @@ let detail= new Schema({
     emailID: String,
     password: String
 },{
-    timestamps:true
+    timestamps:true,
+    strict: false
 })
 let details = mongoose.model('detail',detail);
 export default details;

@@ -9,10 +9,9 @@ const app=express();
 app.use(cookieParser());
 app.use(express.json());
 
+
 const saltRounds=10;
 const myJWTSecretKey="Madhan";
-//const client = new OAuth2Client('569465991930-ste1q4vbvonur3ph82tjrubhpcdqaqi2.apps.googleusercontent.com');
-
 aroute.route('/register').post((req,res,next)=>{
 
     bcrypt.genSalt(saltRounds,function(err,salt){
@@ -73,58 +72,39 @@ aroute.post('/logout', (req, res) => {
     res.status(200).json({ message: 'Logout successful' });
 });
 
-// aroute.route('/gverify',async (req,res)=>{
-//     const token=req.body.id;
-//     try {
-//         const ticket = await client.verifyIdToken({
-//           idToken: token,
-//           audience: '569465991930-ste1q4vbvonur3ph82tjrubhpcdqaqi2.apps.googleusercontent.com'
-//         });
-    
-//         const payload = ticket.getPayload();
-//         const userId = payload['sub'];
-//         const name= payload['name'];
-//         const email = payload['email'];
-//         console.log(payload);
-//         let existingUser=await details.findOne({emailID: email});
-//         if(existingUser){
-//             const token = jwt.sign({u,p}, myJWTSecretKey);
-//             res.cookie('token', token, { httpOnly: true });
-//             res.status(200).json({message: "Successful",token});
-//         }
-//         else{
-//             let data={
-//                 userName: name,
-//                 emailID: email,
-//                 password: ""
-//             }
-//             details.create(data).then(()=>{
-//             console.log("Data Created");
-//             const token = jwt.sign({u,p}, myJWTSecretKey);
-//             res.cookie('token', token, { httpOnly: true });
-//             res.status(200).json({message:"Successful",token});
-//             })
-//         }
-//         //res.sendStatus(200).json({message:"Successful"},token);
-//       } catch (error) {
-//         console.error('Error verifying token:', error);
-//         res.sendStatus(401).json({message:error});
-//       }            
-// });
-
-
-aroute.get('/profile', (req, res) => {
-    const token = req.cookies.token;
+aroute.route('/uquiz').post((req,res,next)=>{
+    const token = req.headers.authorization.split(' ')[1];
     if (token) {
-      jwt.verify(token, myJWTSecretKey, (err, decoded) => {
+        jwt.verify(token, myJWTSecretKey, (err, decoded) => {
         if (err) {
-          res.status(401).json({ message: 'Invalid token' });
+            res.status(401).json({message: "Not Valid User"});
         } else {
-          res.json({message:"LoggedIn", username: decoded.username });
-        }
-      });
+            let name="";
+            name=decoded.u;
+            console.log(req.body.qarr);
+            details.findOneAndUpdate(
+                { userName: name },
+                { $set: { 'questions': req.body.qarr,
+                          'option1': req.body.o1,
+                          'option2': req.body.o2,
+                          'option3': req.body.o3,
+                          'option4': req.body.o4,
+                          'answers': req.body.ca } },
+                { returnOriginal: false } 
+              )
+              .then(updatedDocument => {
+                console.log(updatedDocument);
+                res.status(200).json({ message: "Data Received And Stored" });
+              })
+              .catch(error => {
+                console.error(error);
+                res.status(500).json({ message: "Internal Server Error" });
+              });
+            }
+          });
     } else {
-      res.status(401).json({ message: 'Unauthorized' });
+        res.status(401).json({message: "Not Signed In"});
     }
 });
+
 export default aroute;
