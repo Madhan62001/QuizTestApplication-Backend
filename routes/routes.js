@@ -81,15 +81,10 @@ aroute.route('/uquiz').post((req,res,next)=>{
         } else {
             let name="";
             name=decoded.u;
-            console.log(req.body.qarr);
+            //console.log(req.body);
             details.findOneAndUpdate(
                 { userName: name },
-                { $set: { 'questions': req.body.qarr,
-                          'option1': req.body.o1,
-                          'option2': req.body.o2,
-                          'option3': req.body.o3,
-                          'option4': req.body.o4,
-                          'answers': req.body.ca } },
+                { $set: { 'questions': req.body.questions} },
                 { returnOriginal: false } 
               )
               .then(updatedDocument => {
@@ -105,6 +100,59 @@ aroute.route('/uquiz').post((req,res,next)=>{
     } else {
         res.status(401).json({message: "Not Signed In"});
     }
+});
+
+aroute.route('/ques').post((req,res,next)=>{
+    const token = req.headers.authorization.split(' ')[1];
+    if (token) {
+        jwt.verify(token, myJWTSecretKey, (err, decoded) => {
+        if (err) {
+            res.status(401).json({message: "Not Valid User"});
+        } else {
+            let name="";
+            name=decoded.u;
+            //console.log(req.body);
+            details.find({userName:name}).then((data)=>{
+                // console.log("Here!")
+                // console.log(data);
+                data.forEach((item)=>{
+                    //console.log(item.questions);
+                    res.status(200).json({message: item.questions});
+                })
+            }).catch((error)=>{
+                console.log(error);
+            })
+            }
+        });
+    } else {
+        res.status(401).json({message: "Not Signed In"});
+    }    
+});
+
+aroute.route('/save').post((req,res,next)=>{
+    const token = req.headers.authorization.split(' ')[1];
+    if (token) {
+        jwt.verify(token, myJWTSecretKey, (err, decoded) => {
+        if (err) {
+            res.status(401).json({message: "Not Valid User"});
+        } else {
+            let name="";
+            name=decoded.u;
+
+            details.findOneAndUpdate({userName:name},
+                { $set: { 'sgqusers': req.body.d} },
+                { returnOriginal: false } ).then((data)=>{
+                // console.log("Here!")
+                console.log(data);
+                res.status(200).json({message:" Points Updated!"});
+            }).catch((error)=>{
+                console.log(error);
+            })
+            }
+        });
+    } else {
+        res.status(401).json({message: "Not Signed In"});
+    }    
 });
 
 export default aroute;
