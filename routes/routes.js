@@ -4,7 +4,9 @@ import jwt from "jsonwebtoken"
 import cookieParser from "cookie-parser";
 const aroute=express.Router();
 import {OAuth2Client} from 'google-auth-library';
-import details from "../model/scheme.js"
+import details from "../model/scheme.js";
+import {Configuration, OpenAIApi} from "openai";
+import { file } from "file";
 const app=express();
 app.use(cookieParser());
 app.use(express.json());
@@ -154,5 +156,93 @@ aroute.route('/save').post((req,res,next)=>{
         res.status(401).json({message: "Not Signed In"});
     }    
 });
+
+aroute.route('/ai').post((req,res,next)=>{
+    const token = req.headers.authorization.split(' ')[1];
+    if(token){
+        jwt.verify(token,myJWTSecretKey,async (err,decoded)=>{
+            if(err){
+                res.status(400).json({message:"Not Valid User"});
+            } else{
+                let name="";
+                name=decoded.u;
+                //console.log(req.body);
+                const configuration=new Configuration({
+                    organization:"org-0AsbxvxEniuvz70VsbWNG50t",
+                    apiKey:"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",
+                });
+                const openai=new OpenAIApi(configuration);
+                const context="Generate 3 mcqs with four options of medium level difficulty on the topic "+req.body.topics+". Give the output with answers"
+                const completion=await openai.createChatCompletion({
+                    model: "gpt-3.5-turbo",
+                    messages:[{
+                        role:"user", content:context
+                    }]
+                });
+                //console.log(completion.data.choices[0].message.content);
+                const response = completion.data.choices[0].message.content;
+                const formattedData = extractQuestionsAndOptions(response);
+                // console.log("///////////////////////////////");
+                // console.log(formattedData);
+                details.findOneAndUpdate(
+                    { userName: name },
+                    { $set: { 'questions': formattedData} },
+                    { returnOriginal: false } 
+                  )
+                  .then(updatedDocument => {
+                    console.log(updatedDocument);
+                    res.status(200).json({ message: "Success!" });
+                  })
+                  .catch(error => {
+                    console.error(error);
+                    res.status(500).json({ message: "Internal Server Error" });
+                });
+                console.log(completion.data.choices[0].message.content);
+                res.status(200).json({message:"Success!"});
+            }
+        })
+    }else{
+        res.status(400).json({message:"Not Signed In"});
+    }
+});
+
+function extractQuestionsAndOptions(response){
+    const questionsData = response.split("Answer");
+  //console.log(questionsData);
+  const questions = [];
+  var c=0;
+  
+  for(let i=0;i<questionsData.length-1;i++){
+      const lines=questionsData[i].split('\n');
+      const options = [];
+      var questionText = "";
+      var crtAns="";
+      var isCorrect=false;
+      //console.log(lines);
+      if(i===0){
+          questionText=lines[c];
+      }else{
+          c=2;
+          questionText=lines[c];
+      }
+      const l2=questionsData[i+1].split('\n');
+      crtAns=l2[0].slice(2);
+      //console.log("Correct Answer: ",crtAns);
+      for(let j=c+1;j<lines.length-2;j++){
+          if(crtAns===lines[j]){
+              isCorrect=true;
+          }
+          else{
+              isCorrect=false;
+          }
+          //console.log(lines[j]);
+          options.push({text:lines[j], correct: isCorrect});
+      }
+       //console.log("QuestionText: ",questionText);
+       //console.log("Options: ",options);
+       questions.push({questionText, options});
+  }
+  return questions;
+}
 
 export default aroute;
