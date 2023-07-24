@@ -6,7 +6,7 @@ const aroute=express.Router();
 import {OAuth2Client} from 'google-auth-library';
 import details from "../model/scheme.js";
 import {Configuration, OpenAIApi} from "openai";
-import { file } from "file";
+
 const app=express();
 app.use(cookieParser());
 app.use(express.json());
@@ -30,7 +30,7 @@ aroute.route('/register').post((req,res,next)=>{
                 }
                 console.log("Data Received");
                 //console.log(req.body);
-                res.send(status);
+                res.send(status).json({message:"Registered!"});
             }).catch((error)=>{
                 console.log(error);
             });
@@ -166,13 +166,13 @@ aroute.route('/ai').post((req,res,next)=>{
             } else{
                 let name="";
                 name=decoded.u;
-                //console.log(req.body);
+                console.log(name);
                 const configuration=new Configuration({
                     organization:"org-0AsbxvxEniuvz70VsbWNG50t",
-                    apiKey:"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",
+                    apiKey:"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",
                 });
                 const openai=new OpenAIApi(configuration);
-                const context="Generate 3 mcqs with four options of medium level difficulty on the topic "+req.body.topics+". Give the output with answers"
+                const context="Generate 10 mcqs with four options each of medium level difficulty on the topic "+req.body.topics+". Give the output with answers"
                 const completion=await openai.createChatCompletion({
                     model: "gpt-3.5-turbo",
                     messages:[{
@@ -183,7 +183,7 @@ aroute.route('/ai').post((req,res,next)=>{
                 const response = completion.data.choices[0].message.content;
                 const formattedData = extractQuestionsAndOptions(response);
                 // console.log("///////////////////////////////");
-                // console.log(formattedData);
+                //console.log(formattedData);
                 details.findOneAndUpdate(
                     { userName: name },
                     { $set: { 'questions': formattedData} },
@@ -191,14 +191,14 @@ aroute.route('/ai').post((req,res,next)=>{
                   )
                   .then(updatedDocument => {
                     console.log(updatedDocument);
-                    res.status(200).json({ message: "Success!" });
+                    res.status(200).json({ message: "Success" });
                   })
                   .catch(error => {
                     console.error(error);
                     res.status(500).json({ message: "Internal Server Error" });
-                });
-                console.log(completion.data.choices[0].message.content);
-                res.status(200).json({message:"Success!"});
+                  });
+                // console.log(completion.data.choices[0].message.content);
+                //res.status(200).json({message:"Success!"});
             }
         })
     }else{
