@@ -91,7 +91,7 @@ aroute.route('/uquiz').post((req,res,next)=>{
               )
               .then(updatedDocument => {
                 console.log(updatedDocument);
-                res.status(200).json({ message: "Data Received And Stored" });
+                res.status(200).json({ message: "Data Received And Stored" , id:updatedDocument.id});
               })
               .catch(error => {
                 console.error(error);
@@ -168,8 +168,8 @@ aroute.route('/ai').post((req,res,next)=>{
                 name=decoded.u;
                 console.log(name);
                 const configuration=new Configuration({
-                    organization:"org-0AsbxvxEniuvz70VsbWNG50t",
-                    apiKey:"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",
+                    organization:"your-org-address",
+                    apiKey:"your-api-key"
                 });
                 const openai=new OpenAIApi(configuration);
                 const context="Generate 10 mcqs with four options each of medium level difficulty on the topic "+req.body.topics+". Give the output with answers"
@@ -179,14 +179,11 @@ aroute.route('/ai').post((req,res,next)=>{
                         role:"user", content:context
                     }]
                 });
-                //console.log(completion.data.choices[0].message.content);
                 const response = completion.data.choices[0].message.content;
                 const formattedData = extractQuestionsAndOptions(response);
-                // console.log("///////////////////////////////");
-                //console.log(formattedData);
                 details.findOneAndUpdate(
                     { userName: name },
-                    { $set: { 'questions': formattedData} },
+                    { $set: { 'aiquestions': formattedData} },
                     { returnOriginal: false } 
                   )
                   .then(updatedDocument => {
