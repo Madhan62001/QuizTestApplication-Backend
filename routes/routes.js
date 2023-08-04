@@ -105,57 +105,32 @@ aroute.route('/uquiz').post((req,res,next)=>{
 });
 
 aroute.route('/ques').post((req,res,next)=>{
-    const token = req.headers.authorization.split(' ')[1];
-    if (token) {
-        jwt.verify(token, myJWTSecretKey, (err, decoded) => {
-        if (err) {
-            res.status(401).json({message: "Not Valid User"});
-        } else {
-            let name="";
-            name=decoded.u;
-            //console.log(req.body);
-            details.find({userName:name}).then((data)=>{
-                // console.log("Here!")
-                // console.log(data);
-                data.forEach((item)=>{
-                    //console.log(item.questions);
-                    res.status(200).json({message: item.questions});
-                })
-            }).catch((error)=>{
-                console.log(error);
-            })
-            }
-        });
-    } else {
-        res.status(401).json({message: "Not Signed In"});
-    }    
+    console.log(req.body.link);
+    details.find({_id:req.body.link}).then((data)=>{
+        // console.log("Here!")
+        // console.log(data);
+        data.forEach((item)=>{
+            console.log(item.questions);
+            res.status(200).json({message: item.questions});
+        })
+    }).catch((error)=>{
+        console.log(error);
+        res.status(400).json({message:error});
+    })  
 });
 
 aroute.route('/save').post((req,res,next)=>{
-    const token = req.headers.authorization.split(' ')[1];
-    if (token) {
-        jwt.verify(token, myJWTSecretKey, (err, decoded) => {
-        if (err) {
-            res.status(401).json({message: "Not Valid User"});
-        } else {
-            let name="";
-            name=decoded.u;
-
-            details.findOneAndUpdate({userName:name},
-                { $set: { 'sgqusers': req.body.d} },
-                { returnOriginal: false } ).then((data)=>{
-                // console.log("Here!")
-                console.log(data);
-                res.status(200).json({message:" Points Updated!"});
-            }).catch((error)=>{
-                console.log(error);
-            })
-            }
-        });
-    } else {
-        res.status(401).json({message: "Not Signed In"});
-    }    
-});
+    details.findOneAndUpdate({_id:req.body.link},
+        { $set: { 'sgqusers': req.body.d} },
+        { returnOriginal: false } ).then((data)=>{
+        // console.log("Here!")
+        console.log(data);
+        res.status(200).json({message:" Points Updated!"});
+    }).catch((error)=>{
+        console.log(error);
+    })
+    }
+);
 
 aroute.route('/ai').post((req,res,next)=>{
     const token = req.headers.authorization.split(' ')[1];
@@ -168,7 +143,7 @@ aroute.route('/ai').post((req,res,next)=>{
                 name=decoded.u;
                 console.log(name);
                 const configuration=new Configuration({
-                    organization:"your-org-address",
+                    organization:"your-org-id",
                     apiKey:"your-api-key"
                 });
                 const openai=new OpenAIApi(configuration);
@@ -183,12 +158,12 @@ aroute.route('/ai').post((req,res,next)=>{
                 const formattedData = extractQuestionsAndOptions(response);
                 details.findOneAndUpdate(
                     { userName: name },
-                    { $set: { 'aiquestions': formattedData} },
+                    { $set: { 'questions': formattedData} },
                     { returnOriginal: false } 
                   )
                   .then(updatedDocument => {
                     console.log(updatedDocument);
-                    res.status(200).json({ message: "Success" });
+                    res.status(200).json({ message: "Success",  id:updatedDocument.id});
                   })
                   .catch(error => {
                     console.error(error);
