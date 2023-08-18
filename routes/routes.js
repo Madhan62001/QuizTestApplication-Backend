@@ -12,8 +12,19 @@ app.use(cookieParser());
 app.use(express.json());
 const saltRounds = 10;
 const myJWTSecretKey = "Madhan";
+aroute.get('/usernames', async (req, res) => {
+    try {
+      const usernames = await details.find({},'userName');
+      const emails = await details.find({},'emailID');
+      res.status(200).json({usernames,emails});
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
 aroute.route('/register').post((req, res, next) => {
-
+    let u=req.body.userName;
+    let p=req.body.password;
     bcrypt.genSalt(saltRounds, function (err, salt) {
         bcrypt.hash(req.body.password, salt, function (err, hash) {
             let data = {
@@ -21,12 +32,14 @@ aroute.route('/register').post((req, res, next) => {
                 emailID: req.body.emailID,
                 password: hash,
                 isSub: "False",
-                noTurns: 5
+                isq: false,
+                noTurns: 5,
+                attend:false
             }
             details.create(data).then(() => {
-                //console.log("Data Received");
-                //console.log(req.body);
-                res.status(200).json({ message: "Registered!" });
+                const token = jwt.sign({ u, p }, myJWTSecretKey);
+                res.cookie('token', token, { httpOnly: true });
+                res.status(200).json({ message: "Registered!",token});
             }).catch((error) => {
                 console.log(error);
                 res.status(400).json({ message: error });
@@ -37,23 +50,20 @@ aroute.route('/register').post((req, res, next) => {
 
 aroute.route('/login').post((req, res, next) => {
     details.find({ userName: req.body.userName }).then((data) => {
-        console.log("Came Here")
-        //console.log(data);
         let u = "", p = "";
         data.forEach((item) => {
             u = item.userName,
-                p = item.password
+            p = item.password
         });
         //console.log(p);
         bcrypt.compare(req.body.password, p, function (err, result) {
-            console.log("Result: ", result);
             if (result) {
                 const token = jwt.sign({ u, p }, myJWTSecretKey);
                 res.cookie('token', token, { httpOnly: true });
                 res.status(200).json({ message: "LoggedIn", token });
                 //res.send(status);
             } else {
-                res.status(400).json({ message: err });
+                res.status(400).json({ error: "Incorrect Username or Password!" });
             }
         });
     }).catch((error) => {
@@ -75,10 +85,9 @@ aroute.route('/uquiz').post((req, res, next) => {
             } else {
                 let name = "";
                 name = decoded.u;
-                //console.log(req.body);
                 details.findOneAndUpdate(
                     { userName: name },
-                    { $set: { 'uquestions': req.body.questions } },
+                    { $set: { 'uquestions': req.body.questions, 'isq':true,'attend':false}, $inc: {'noTurns':-1} },
                     { returnOriginal: false }
                 )
                     .then(updatedDocument => {
@@ -132,7 +141,7 @@ aroute.route('/save').post((req, res, next) => {
     let i = req.body.d.inAns;
     if (s == "1") {
         details.findOneAndUpdate({ _id: link },
-            { $push: { 'sgqusers': { name: n, points: p, crt: c, incrt: i } } },
+            { $push: { 'sgqusers': { name: n, points: p, crt: c, incrt: i } }, $set: {'attend':true} },
             { returnOriginal: false }).then((data) => {
                 //console.log(data);
                 res.status(200).json({ message: " Points Updated!" });
@@ -165,7 +174,7 @@ aroute.route('/ai').post((req, res, next) => {
                     apiKey: ""
                 });
                 const openai = new OpenAIApi(configuration);
-                const context = "Generate 10 mcqs with four options each of medium level difficulty on the topic " + req.body.topics + ". Give the output with answers"
+                const context = "Generate 10 questions with four options each of medium level difficulty on the topic " + req.body.topics + ". Give the output with answers"
                 const completion = await openai.createChatCompletion({
                     model: "gpt-3.5-turbo",
                     messages: [{
@@ -265,6 +274,7 @@ aroute.route('/profile').post((req, res, next) => {
                             joinYear: item.createdAt.getFullYear(),
                             subscribed: item.isSub,
                             turnsLeft: item.noTurns,
+                            isq:item.isq,
                             gender: response
                         }
                         res.status(200).json(d);
@@ -293,7 +303,8 @@ aroute.route('/board').post((req, res, next) => {
                 details.find({ userName: name }).then((data) => {
                     data.forEach((item) => {
                         const d = {
-                            users:item.sgqusers
+                            users: item.sgqusers,
+                            attend: item.attend
                         }
                         //console.log("Sent");
                         res.status(200).json(d);
@@ -322,12 +333,12 @@ aroute.route('/sub').post((req, res, next) => {
                 name = decoded.u;
                 details.findOneAndUpdate(
                     { userName: name },
-                    { $set: { 'noTurns': req.body.t } },
+                    { $set: { 'noTurns': req.body.t, 'isSub': "true" } },
                     { returnOriginal: false }
                 )
                     .then(updatedDocument => {
                         //console.log(updatedDocument);
-                        res.status(200).json({ message: "Success"});
+                        res.status(200).json({ message: "Success" });
                     })
                     .catch(error => {
                         console.error(error);
@@ -338,6 +349,36 @@ aroute.route('/sub').post((req, res, next) => {
     } else {
         res.status(400).json({ message: "Not Signed In" });
     }
+});
+
+aroute.route('/fetch').get((req, res, next) => {
+    const token = req.headers.authorization.split(' ')[1];
+    if (token) {
+        jwt.verify(token, myJWTSecretKey, async (err, decoded) => {
+            if (err) {
+                res.status(400).json({ message: "Not Valid User" });
+            } else {
+                let name = "";
+                name = decoded.u;
+                //console.log(response);
+                details.find({ userName: name }).then((data) => {
+                    data.forEach((item) => {
+                        const d = {
+                            turnsLeft: item.noTurns,
+                            name:name
+                        }
+                        res.status(200).json(d);
+                    })
+                }).catch((error) => {
+                    console.log(error);
+                    res.status(400).json({ message: error });
+                })
+            }
+        })
+    } else {
+        res.status(400).json({ message: "Not Signed In" });
+    }
+
 });
 
 export default aroute;
