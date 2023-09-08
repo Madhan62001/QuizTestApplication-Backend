@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import cookieParser from "cookie-parser";
 const aroute = express.Router();
-import { OAuth2Client } from 'google-auth-library';
 import details from "../model/scheme.js";
+import nodemailer from "nodemailer";
 import { Configuration, OpenAIApi } from "openai";
 
 const app = express();
@@ -69,6 +69,55 @@ aroute.route('/login').post((req, res, next) => {
     }).catch((error) => {
         console.log(error);
     })
+});
+
+aroute.route('/mail').post(async (req,res,next)=>{
+    // const {to,subject,text}=req.body;
+    let to=req.body.m;
+    let subject=req.body.subject;
+    let text=req.body.text;
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', 
+        auth: {
+          
+        },
+    });
+    const mailOptions = {
+        from: 'madhan.2k01@gmail.com',
+        to,
+        subject,
+        text,
+    };
+    try {
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ message: 'Email sent successfully' });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error sending email' });
+      }
+});
+
+aroute.route('/reset').post(async (req,res,next)=>{
+    let m=req.body.m;
+    let p=req.body.p;
+    console.log(m);
+    // console.log(p);
+    bcrypt.genSalt(saltRounds, function (err, salt) {
+        bcrypt.hash(p, salt, function (err, hash) {
+            // console.log(hash);
+            // console.log("$2a$10$oeQT8D/9.70kr1bbP7DyGeo1Zf4Z3gs92/fieOyiXTsg9Oj0rzwPa")
+            details.findOneAndUpdate(
+                { emailID: m },
+                { $set: { 'password': hash}},
+                { returnOriginal: false }
+            ).then(updatedDocument => {
+                res.status(200).json({ message: "Password Updated"});
+            }).catch(error => {
+                console.error(error);
+                res.status(500).json({ message: "Internal Server Error" });
+            });
+        });
+    });
 });
 
 aroute.post('/logout', (req, res) => {
@@ -170,8 +219,7 @@ aroute.route('/ai').post((req, res, next) => {
                 name = decoded.u;
                 console.log(name);
                 const configuration = new Configuration({
-                    organization: "",
-                    apiKey: ""
+                    
                 });
                 const openai = new OpenAIApi(configuration);
                 const context = "Generate 10 questions with four options each of medium level difficulty on the topic " + req.body.topics + ". Give the output with answers"
@@ -246,8 +294,7 @@ aroute.route('/profile').post((req, res, next) => {
                 let name = "";
                 name = decoded.u;
                 const configuration = new Configuration({
-                    organization: "",
-                    apiKey: ""
+                    
                 });
                 const openai = new OpenAIApi(configuration);
                 const context = "Give Answer in single word: State Gender For Name: " + name + " Or state it as bot";
